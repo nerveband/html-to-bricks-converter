@@ -4,6 +4,7 @@ import json
 from cerebras.cloud.sdk import Cerebras
 import pyperclip
 from typing import Generator
+from streamlit_ace import st_ace
 
 # Page configuration
 st.set_page_config(
@@ -16,15 +17,6 @@ st.set_page_config(
 # Custom CSS for better styling
 st.markdown("""
 <style>
-.stTextArea textarea {
-    font-family: 'Fira Code', 'Monaco', 'Consolas', 'Courier New', monospace !important;
-    font-size: 14px !important;
-    line-height: 1.5 !important;
-    background-color: #0e1117 !important;
-    color: #fafafa !important;
-    border: 1px solid #30363d !important;
-    border-radius: 6px !important;
-}
 .copy-button {
     float: right;
     margin-bottom: 10px;
@@ -51,6 +43,11 @@ st.markdown("""
     border: 1px solid #21262d !important;
     white-space: pre-wrap !important;
     overflow-x: auto !important;
+}
+/* Custom styling for ace editor containers */
+.ace-editor-container {
+    border-radius: 8px !important;
+    overflow: hidden !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -254,11 +251,18 @@ def main():
                 if 'input_content' in st.session_state:
                     copy_to_clipboard(st.session_state.input_content, "Input copied!")
         
-        # Input text area
-        input_content = st.text_area(
-            "Enter your HTML or content to convert:",
-            height=400,
+        # Input code editor
+        input_content = st_ace(
+            value=st.session_state.get("input_content", ""),
+            language='html',
+            theme='monokai',
             key="input_content",
+            height=400,
+            auto_update=True,
+            font_size=14,
+            tab_size=2,
+            wrap=True,
+            annotations=None,
             placeholder="Paste your HTML, CSS, or any content here..."
         )
     
@@ -276,7 +280,7 @@ def main():
                 if 'json_template' in st.session_state:
                     copy_to_clipboard(st.session_state.json_template, "Template copied!")
         
-        # Template text area with default example
+        # Template code editor with default example
         default_template = """{
   "elements": [
     {
@@ -293,12 +297,21 @@ def main():
   ]
 }"""
         
-        json_template = st.text_area(
-            "Bricks Builder JSON template structure:",
-            value=default_template,
-            height=400,
+        # Initialize template if not in session state
+        if 'json_template' not in st.session_state:
+            st.session_state.json_template = default_template
+        
+        json_template = st_ace(
+            value=st.session_state.get("json_template", default_template),
+            language='json',
+            theme='monokai',
             key="json_template",
-            help="Provide a sample Bricks Builder JSON structure as reference"
+            height=400,
+            auto_update=True,
+            font_size=14,
+            tab_size=2,
+            wrap=True,
+            annotations=None
         )
     
     # Right column - Converted Output
@@ -315,22 +328,28 @@ def main():
                 if 'converted_output' in st.session_state:
                     copy_to_clipboard(st.session_state.converted_output, "Output copied!")
         
-        # Output area (will be populated by conversion)
-        output_placeholder = st.empty()
-        
         # Initialize output in session state if not exists
         if 'converted_output' not in st.session_state:
             st.session_state.converted_output = ""
         
-        # Display current output
-        with output_placeholder.container():
-            st.text_area(
-                "Converted Bricks Builder JSON:",
-                value=st.session_state.converted_output,
-                height=400,
-                key="output_display",
-                disabled=True
-            )
+        # Output code editor (editable)
+        converted_output = st_ace(
+            value=st.session_state.get("converted_output", ""),
+            language='json',
+            theme='monokai',
+            key="output_display",
+            height=400,
+            auto_update=True,
+            font_size=14,
+            tab_size=2,
+            wrap=True,
+            annotations=None,
+            placeholder="Converted JSON will appear here..."
+        )
+        
+        # Update session state if user edits the output
+        if converted_output != st.session_state.get("converted_output", ""):
+            st.session_state.converted_output = converted_output
     
     # Conversion controls
     st.markdown("---")
