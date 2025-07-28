@@ -391,12 +391,12 @@ def main():
         if 'converted_output' not in st.session_state:
             st.session_state.converted_output = ""
         
-        # Output code editor (editable) - use same key as session state
+        # Output code editor (editable) - use different key than session state
         converted_output = st_ace(
             value=st.session_state.get("converted_output", ""),
             language='json',
             theme='monokai',
-            key="converted_output",  # Match session state key
+            key="output_ace_editor",  # Different key to avoid session state conflict
             height=400,
             auto_update=True,
             font_size=14,
@@ -405,6 +405,10 @@ def main():
             annotations=None,
             placeholder="Converted JSON will appear here..."
         )
+        
+        # Update session state if user manually edits the output
+        if converted_output != st.session_state.get("converted_output", ""):
+            st.session_state.converted_output = converted_output
     
     # Conversion controls
     st.markdown("---")
@@ -427,8 +431,14 @@ def main():
         else:
             st.success("✅ Ready to convert")
     
-    # Handle conversion
+    # Handle conversion - use session state flag to avoid conflicts
     if convert_button and get_api_key() and input_content and json_template:
+        # Set conversion flag before creating widgets
+        st.session_state.is_converting = True
+        st.session_state.conversion_result = ""
+        
+    # Show conversion process if in progress
+    if st.session_state.get("is_converting", False):
         client = initialize_cerebras_client()
         if client:
             # Log the request
@@ -436,9 +446,6 @@ def main():
                 input_content, json_template, model_choice, 
                 temperature, top_p, max_tokens
             )
-            
-            # Clear previous output
-            st.session_state.converted_output = ""
             
             # Create a persistent streaming section (don't clear it)
             st.info("🔄 Converting... (streaming response)")
@@ -464,14 +471,17 @@ def main():
                 # Log the response
                 log_conversion_response(log_file, full_response, cleaned_response, True)
                 
-                # Store cleaned result in session state - this will update the ace editor automatically
+                # Store result in separate session state to avoid widget conflicts
+                st.session_state.conversion_result = cleaned_response
                 st.session_state.converted_output = cleaned_response
+                st.session_state.is_converting = False
                 
                 # Show completion message (below the streaming output)
                 st.success("✅ Conversion completed! Output updated in the right panel.")
                 st.info(f"📁 Request/response logged to: {log_file}")
                 
-                # No st.rerun() - let the ace editor update naturally via session state
+                # Trigger rerun to update the ace editor with new content
+                st.rerun()
                 
             except Exception as e:
                 error_msg = f"Conversion failed: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
@@ -479,6 +489,7 @@ def main():
                 
                 # Log the error
                 log_conversion_response(log_file, "", "", False, error_msg)
+                st.session_state.is_converting = False
     
     # Footer with usage information
     st.markdown("---")
