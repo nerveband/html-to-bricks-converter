@@ -18,7 +18,8 @@ A professional Streamlit web application that converts HTML or any content to Br
 - 🧹 **Smart output cleaning**: Automatically removes markdown blocks and thinking tags
 - 💾 **Session persistence**: API key and content are remembered during the session
 - 🔐 **Secure API key management**: Support for environment variables
-- 🎨 **Enhanced readability**: Improved text box styling with monospace fonts
+- 🎨 **Syntax highlighting**: Professional code editors with HTML/JSON highlighting
+- 📁 **Request/Response logging**: All conversions logged to timestamped files in `_history/` folder
 
 ## Installation
 
@@ -117,6 +118,22 @@ The AI will generate a proper Bricks Builder JSON structure based on your input 
 - Break complex HTML into smaller chunks for better conversion
 - Modify the JSON template to match your specific Bricks Builder needs
 - The streaming feature shows real-time conversion progress
+- All conversions are automatically logged to the `_history/` folder with timestamps
+
+## Request/Response Logging
+
+Every conversion request and response is automatically saved to JSON files in the `_history/` folder with detailed timestamps. Each log file contains:
+
+- **Request data**: Input content, JSON template, model parameters
+- **Response data**: Raw AI output, cleaned JSON, success status, error details (if any)
+- **Timestamps**: Precise timing for debugging and analysis
+- **Model info**: Which model and parameters were used
+
+This helps with:
+- **Debugging**: Review what was sent and received
+- **Analysis**: Track conversion patterns and success rates  
+- **Backup**: Never lose your conversion results
+- **Auditing**: Complete history of all API usage
 
 ## Troubleshooting
 

@@ -5,6 +5,8 @@ from cerebras.cloud.sdk import Cerebras
 import pyperclip
 from typing import Generator
 from streamlit_ace import st_ace
+from datetime import datetime
+import traceback
 
 # Page configuration
 st.set_page_config(
@@ -63,6 +65,63 @@ def copy_to_clipboard(text: str, success_message: str = "Copied to clipboard!"):
         st.success(success_message)
     except Exception as e:
         st.error(f"Failed to copy to clipboard: {str(e)}")
+
+def ensure_history_folder():
+    """Ensure _history folder exists"""
+    history_dir = "_history"
+    if not os.path.exists(history_dir):
+        os.makedirs(history_dir)
+    return history_dir
+
+def log_conversion_request(input_content: str, json_template: str, model: str, temperature: float, top_p: float, max_tokens: int) -> str:
+    """Log conversion request to history folder and return log filename"""
+    history_dir = ensure_history_folder()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # microseconds to milliseconds
+    log_file = os.path.join(history_dir, f"request_{timestamp}.json")
+    
+    log_data = {
+        "timestamp": datetime.now().isoformat(),
+        "type": "request",
+        "model": model,
+        "parameters": {
+            "temperature": temperature,
+            "top_p": top_p,
+            "max_tokens": max_tokens
+        },
+        "input_content": input_content,
+        "json_template": json_template
+    }
+    
+    try:
+        with open(log_file, 'w', encoding='utf-8') as f:
+            json.dump(log_data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        st.error(f"Failed to log request: {str(e)}")
+    
+    return log_file
+
+def log_conversion_response(log_file: str, raw_response: str, cleaned_response: str, success: bool = True, error: str = None):
+    """Log conversion response to the same file as request"""
+    try:
+        # Read existing log data
+        with open(log_file, 'r', encoding='utf-8') as f:
+            log_data = json.load(f)
+        
+        # Add response data
+        log_data["response"] = {
+            "timestamp": datetime.now().isoformat(),
+            "success": success,
+            "raw_response": raw_response,
+            "cleaned_response": cleaned_response,
+            "error": error
+        }
+        
+        # Write back to file
+        with open(log_file, 'w', encoding='utf-8') as f:
+            json.dump(log_data, f, indent=2, ensure_ascii=False)
+            
+    except Exception as e:
+        st.error(f"Failed to log response: {str(e)}")
 
 def clean_output(text: str) -> str:
     """Clean the output by removing markdown code blocks and thinking tags"""
@@ -350,6 +409,10 @@ def main():
         # Update session state if user edits the output
         if converted_output != st.session_state.get("converted_output", ""):
             st.session_state.converted_output = converted_output
+        
+        # Force update the ace editor with session state value
+        if st.session_state.get("converted_output", "") and converted_output != st.session_state.get("converted_output", ""):
+            st.rerun()
     
     # Conversion controls
     st.markdown("---")
@@ -376,44 +439,66 @@ def main():
     if convert_button and get_api_key() and input_content and json_template:
         client = initialize_cerebras_client()
         if client:
+            # Log the request
+            log_file = log_conversion_request(
+                input_content, json_template, model_choice, 
+                temperature, top_p, max_tokens
+            )
+            
+            # Clear previous output
             st.session_state.converted_output = ""
             
-            # Create a placeholder for streaming output
+            # Create placeholders for streaming
             streaming_placeholder = st.empty()
+            output_placeholder = st.empty()
             
             with streaming_placeholder.container():
                 st.info("🔄 Converting... (streaming response)")
-                streaming_output = st.empty()
+                st.markdown("**🔄 Live Conversion Stream:**")
+                stream_container = st.empty()
                 
-                # Stream the conversion using Streamlit's write_stream
                 try:
-                    with streaming_output.container():
-                        st.markdown("**🔄 Live Conversion Stream:**")
-                        # Create a generator for Streamlit's write_stream
-                        def conversion_generator():
-                            full_text = ""
-                            for chunk in stream_conversion(client, input_content, json_template, model_choice, max_tokens, temperature, top_p):
-                                full_text += chunk
-                                yield chunk
-                            # Store the full response for cleaning
-                            st.session_state._raw_output = full_text
-                        
-                        # Use Streamlit's native streaming
-                        st.write_stream(conversion_generator())
+                    # Initialize streaming variables
+                    full_response = ""
                     
-                    # Clean the output using the new cleaning function
-                    raw_output = st.session_state.get('_raw_output', '')
-                    cleaned_response = clean_output(raw_output)
+                    # Create a generator that yields chunks and updates display
+                    def conversion_generator():
+                        nonlocal full_response
+                        for chunk in stream_conversion(client, input_content, json_template, model_choice, max_tokens, temperature, top_p):
+                            full_response += chunk
+                            yield chunk
                     
-                    # Store final cleaned result
+                    # Stream the conversion
+                    st.write_stream(conversion_generator())
+                    
+                    # Clean the output
+                    cleaned_response = clean_output(full_response)
+                    
+                    # Log the response
+                    log_conversion_response(log_file, full_response, cleaned_response, True)
+                    
+                    # Store cleaned result in session state
                     st.session_state.converted_output = cleaned_response
                     
-                    # Clear streaming placeholder and refresh the page
+                    # Show completion message
+                    st.success("✅ Conversion completed! Output updated in the right panel.")
+                    st.info(f"📁 Request/response logged to: {log_file}")
+                    
+                    # Wait a moment then clear streaming area
+                    import time
+                    time.sleep(2)
                     streaming_placeholder.empty()
+                    
+                    # Trigger rerun to update the ace editor
                     st.rerun()
                     
                 except Exception as e:
-                    st.error(f"Conversion failed: {str(e)}")
+                    error_msg = f"Conversion failed: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+                    st.error(error_msg)
+                    
+                    # Log the error
+                    log_conversion_response(log_file, "", "", False, error_msg)
+                    
                     streaming_placeholder.empty()
     
     # Footer with usage information
