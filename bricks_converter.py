@@ -293,7 +293,7 @@ def main():
             help="Maximum tokens in the response"
         )
     
-    # Main three-column layout
+    # Main layout - three columns for input/template/output, plus streaming section below
     col1, col2, col3 = st.columns(3)
     
     # Left column - Input Content
@@ -410,6 +410,40 @@ def main():
         if converted_output != st.session_state.get("converted_output", ""):
             st.session_state.converted_output = converted_output
     
+    # Streaming Output Section (persistent after conversion)
+    st.markdown("---")
+    st.subheader("🔄 Streaming Output & Raw Response")
+    
+    # Initialize streaming output in session state
+    if 'streaming_output' not in st.session_state:
+        st.session_state.streaming_output = ""
+    
+    # Control buttons for streaming output
+    col_clear_stream, col_copy_stream = st.columns([1, 4])
+    with col_clear_stream:
+        if st.button("🗑️ Clear Stream", key="clear_stream"):
+            st.session_state.streaming_output = ""
+    with col_copy_stream:
+        if st.button("📋 Copy Raw Stream", key="copy_stream"):
+            if st.session_state.streaming_output:
+                copy_to_clipboard(st.session_state.streaming_output, "Raw stream copied!")
+    
+    # Streaming output display (persistent ace editor)
+    streaming_display = st_ace(
+        value=st.session_state.get("streaming_output", ""),
+        language='text',
+        theme='monokai',
+        key="streaming_ace_editor",
+        height=200,
+        auto_update=True,
+        font_size=12,
+        tab_size=2,
+        wrap=True,
+        readonly=True,  # Read-only for viewing
+        annotations=None,
+        placeholder="Streaming output will appear here during conversion..."
+    )
+    
     # Conversion controls
     st.markdown("---")
     col_convert, col_status = st.columns([1, 3])
@@ -431,14 +465,8 @@ def main():
         else:
             st.success("✅ Ready to convert")
     
-    # Handle conversion - use session state flag to avoid conflicts
+    # Handle conversion
     if convert_button and get_api_key() and input_content and json_template:
-        # Set conversion flag before creating widgets
-        st.session_state.is_converting = True
-        st.session_state.conversion_result = ""
-        
-    # Show conversion process if in progress
-    if st.session_state.get("is_converting", False):
         client = initialize_cerebras_client()
         if client:
             # Log the request
@@ -447,23 +475,33 @@ def main():
                 temperature, top_p, max_tokens
             )
             
-            # Create a persistent streaming section (don't clear it)
+            # Clear previous outputs
+            st.session_state.streaming_output = ""
+            st.session_state.converted_output = ""
+            
+            # Show conversion progress
             st.info("🔄 Converting... (streaming response)")
             st.markdown("**🔄 Live Conversion Stream:**")
+            
+            # Create placeholder for live streaming
+            live_stream_placeholder = st.empty()
             
             try:
                 # Initialize streaming variables
                 full_response = ""
                 
-                # Create a generator that yields chunks and updates display
+                # Create a generator that captures the stream
                 def conversion_generator():
                     nonlocal full_response
                     for chunk in stream_conversion(client, input_content, json_template, model_choice, max_tokens, temperature, top_p):
                         full_response += chunk
+                        # Store in session state for persistent display
+                        st.session_state.streaming_output = full_response
                         yield chunk
                 
-                # Stream the conversion - this stays visible
-                st.write_stream(conversion_generator())
+                # Stream the conversion live
+                with live_stream_placeholder.container():
+                    st.write_stream(conversion_generator())
                 
                 # Clean the output
                 cleaned_response = clean_output(full_response)
@@ -471,25 +509,27 @@ def main():
                 # Log the response
                 log_conversion_response(log_file, full_response, cleaned_response, True)
                 
-                # Store result in separate session state to avoid widget conflicts
-                st.session_state.conversion_result = cleaned_response
-                st.session_state.converted_output = cleaned_response
-                st.session_state.is_converting = False
+                # Update both outputs in session state
+                st.session_state.streaming_output = full_response  # Raw stream
+                st.session_state.converted_output = cleaned_response  # Cleaned JSON
                 
-                # Show completion message (below the streaming output)
-                st.success("✅ Conversion completed! Output updated in the right panel.")
+                # Show completion message
+                st.success("✅ Conversion completed! Check the output panels below.")
                 st.info(f"📁 Request/response logged to: {log_file}")
+                st.info("💡 **Raw stream** is in the streaming section, **cleaned JSON** is in the right panel above.")
                 
-                # Trigger rerun to update the ace editor with new content
+                # Force rerun to update ace editors with new content
                 st.rerun()
                 
             except Exception as e:
                 error_msg = f"Conversion failed: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
                 st.error(error_msg)
                 
+                # Store error in streaming output
+                st.session_state.streaming_output = error_msg
+                
                 # Log the error
                 log_conversion_response(log_file, "", "", False, error_msg)
-                st.session_state.is_converting = False
     
     # Footer with usage information
     st.markdown("---")

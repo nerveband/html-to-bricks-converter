@@ -10,8 +10,8 @@ A professional Streamlit web application that converts HTML or any content to Br
 
 ## Features
 
-- 🏗️ **Three-pane interface**: Input content, JSON template, and converted output
-- 🔄 **Real-time streaming**: See the conversion happen live using Streamlit's native streaming
+- 🏗️ **Four-section interface**: Input content, JSON template, converted output, and persistent streaming display
+- 🔄 **Real-time streaming**: See the conversion happen live with persistent raw output inspection
 - 📋 **Copy to clipboard**: Quick copy functionality for each panel
 - 🗑️ **Clear panels**: Easy content management with clear buttons
 - ⚙️ **Advanced configuration**: Multiple models, temperature, top-p, and token limits
