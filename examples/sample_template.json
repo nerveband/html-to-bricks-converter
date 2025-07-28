@@ -1,0 +1,104 @@
+{
+  "elements": [
+    {
+      "id": "section-hero",
+      "name": "section",
+      "component": "section",
+      "settings": {
+        "tag": "section",
+        "_display": "block",
+        "_width": "100%",
+        "_background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        "_padding": "60px 20px",
+        "_textAlign": "center",
+        "_color": "white"
+      },
+      "elements": [
+        {
+          "id": "container-hero",
+          "name": "div",
+          "component": "div",
+          "settings": {
+            "tag": "div",
+            "_maxWidth": "1200px",
+            "_margin": "0 auto",
+            "_display": "block"
+          },
+          "elements": [
+            {
+              "id": "heading-main",
+              "name": "heading",
+              "component": "heading",
+              "settings": {
+                "tag": "h1",
+                "text": "Welcome to Our Amazing Platform",
+                "_fontSize": "3.5rem",
+                "_fontWeight": "bold",
+                "_marginBottom": "1rem",
+                "_color": "white"
+              }
+            },
+            {
+              "id": "text-subtitle",
+              "name": "text",
+              "component": "text",
+              "settings": {
+                "tag": "p",
+                "text": "Transform your ideas into reality with our cutting-edge tools.",
+                "_fontSize": "1.25rem",
+                "_marginBottom": "2rem",
+                "_opacity": "0.9"
+              }
+            },
+            {
+              "id": "buttons-cta",
+              "name": "div",
+              "component": "div",
+              "settings": {
+                "tag": "div",
+                "_display": "flex",
+                "_gap": "1rem",
+                "_justifyContent": "center",
+                "_flexWrap": "wrap"
+              },
+              "elements": [
+                {
+                  "id": "btn-primary",
+                  "name": "button",
+                  "component": "button",
+                  "settings": {
+                    "tag": "button",
+                    "text": "Get Started Free",
+                    "_background": "#ff6b6b",
+                    "_color": "white",
+                    "_padding": "12px 24px",
+                    "_border": "none",
+                    "_borderRadius": "6px",
+                    "_fontSize": "1rem",
+                    "_cursor": "pointer"
+                  }
+                },
+                {
+                  "id": "btn-secondary",
+                  "name": "button",
+                  "component": "button",
+                  "settings": {
+                    "tag": "button",
+                    "text": "Learn More",
+                    "_background": "transparent",
+                    "_color": "white",
+                    "_padding": "12px 24px",
+                    "_border": "2px solid white",
+                    "_borderRadius": "6px",
+                    "_fontSize": "1rem",
+                    "_cursor": "pointer"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
