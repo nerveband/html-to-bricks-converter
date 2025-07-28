@@ -391,12 +391,12 @@ def main():
         if 'converted_output' not in st.session_state:
             st.session_state.converted_output = ""
         
-        # Output code editor (editable)
+        # Output code editor (editable) - use same key as session state
         converted_output = st_ace(
             value=st.session_state.get("converted_output", ""),
             language='json',
             theme='monokai',
-            key="output_display",
+            key="converted_output",  # Match session state key
             height=400,
             auto_update=True,
             font_size=14,
@@ -405,14 +405,6 @@ def main():
             annotations=None,
             placeholder="Converted JSON will appear here..."
         )
-        
-        # Update session state if user edits the output
-        if converted_output != st.session_state.get("converted_output", ""):
-            st.session_state.converted_output = converted_output
-        
-        # Force update the ace editor with session state value
-        if st.session_state.get("converted_output", "") and converted_output != st.session_state.get("converted_output", ""):
-            st.rerun()
     
     # Conversion controls
     st.markdown("---")
@@ -448,58 +440,45 @@ def main():
             # Clear previous output
             st.session_state.converted_output = ""
             
-            # Create placeholders for streaming
-            streaming_placeholder = st.empty()
-            output_placeholder = st.empty()
+            # Create a persistent streaming section (don't clear it)
+            st.info("🔄 Converting... (streaming response)")
+            st.markdown("**🔄 Live Conversion Stream:**")
             
-            with streaming_placeholder.container():
-                st.info("🔄 Converting... (streaming response)")
-                st.markdown("**🔄 Live Conversion Stream:**")
-                stream_container = st.empty()
+            try:
+                # Initialize streaming variables
+                full_response = ""
                 
-                try:
-                    # Initialize streaming variables
-                    full_response = ""
-                    
-                    # Create a generator that yields chunks and updates display
-                    def conversion_generator():
-                        nonlocal full_response
-                        for chunk in stream_conversion(client, input_content, json_template, model_choice, max_tokens, temperature, top_p):
-                            full_response += chunk
-                            yield chunk
-                    
-                    # Stream the conversion
-                    st.write_stream(conversion_generator())
-                    
-                    # Clean the output
-                    cleaned_response = clean_output(full_response)
-                    
-                    # Log the response
-                    log_conversion_response(log_file, full_response, cleaned_response, True)
-                    
-                    # Store cleaned result in session state
-                    st.session_state.converted_output = cleaned_response
-                    
-                    # Show completion message
-                    st.success("✅ Conversion completed! Output updated in the right panel.")
-                    st.info(f"📁 Request/response logged to: {log_file}")
-                    
-                    # Wait a moment then clear streaming area
-                    import time
-                    time.sleep(2)
-                    streaming_placeholder.empty()
-                    
-                    # Trigger rerun to update the ace editor
-                    st.rerun()
-                    
-                except Exception as e:
-                    error_msg = f"Conversion failed: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
-                    st.error(error_msg)
-                    
-                    # Log the error
-                    log_conversion_response(log_file, "", "", False, error_msg)
-                    
-                    streaming_placeholder.empty()
+                # Create a generator that yields chunks and updates display
+                def conversion_generator():
+                    nonlocal full_response
+                    for chunk in stream_conversion(client, input_content, json_template, model_choice, max_tokens, temperature, top_p):
+                        full_response += chunk
+                        yield chunk
+                
+                # Stream the conversion - this stays visible
+                st.write_stream(conversion_generator())
+                
+                # Clean the output
+                cleaned_response = clean_output(full_response)
+                
+                # Log the response
+                log_conversion_response(log_file, full_response, cleaned_response, True)
+                
+                # Store cleaned result in session state - this will update the ace editor automatically
+                st.session_state.converted_output = cleaned_response
+                
+                # Show completion message (below the streaming output)
+                st.success("✅ Conversion completed! Output updated in the right panel.")
+                st.info(f"📁 Request/response logged to: {log_file}")
+                
+                # No st.rerun() - let the ace editor update naturally via session state
+                
+            except Exception as e:
+                error_msg = f"Conversion failed: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+                st.error(error_msg)
+                
+                # Log the error
+                log_conversion_response(log_file, "", "", False, error_msg)
     
     # Footer with usage information
     st.markdown("---")
